@@ -3,5 +3,9 @@
   "framework": null,
   "buildCommand": null,
   "outputDirectory": ".",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/sky-crown-athletic", "destination": "/" },
+    { "source": "/sky-crown-athletic/(.*)", "destination": "/$1" }
+  ]
 }
