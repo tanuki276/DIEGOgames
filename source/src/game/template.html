@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232b6fe3'/%3E%3Ctext x='32' y='43' font-size='34' text-anchor='middle'%3E%F0%9F%91%91%3C/text%3E%3C/svg%3E" />
+  <title>Sky Crown Athletic v2 — DIEGOgames</title>
+  <meta name="description" content="全10ステージ・高度100mの天空王冠を目指すフォールガイズ×オンリーアップ風3D Webアスレチックゲーム！" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #87d4ff;
+      font-family: "Hiragino Maru Gothic ProN", "Rounded Mplus 1c", "Yu Gothic", "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: #1f2d42;
+      touch-action: none;
+    }
+
+    #game-wrap {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+    }
+    #game-canvas:active { cursor: grabbing; }
+
+    /* Top HUD */
+    #hud {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top));
+      left: max(12px, env(safe-area-inset-left));
+      right: max(12px, env(safe-area-inset-right));
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .hud-left {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 7px;
+    }
+
+    .hud-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hud-pill {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 2px solid rgba(255, 255, 255, 0.96);
+      border-radius: 999px;
+      box-shadow: 0 6px 18px rgba(34, 92, 150, 0.16);
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .hud-timer-val {
+      font-size: clamp(16px, 3.4vw, 21px);
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      font-variant-numeric: tabular-nums;
+      color: #1e3557;
+    }
+
+    #hud-stage-num {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: #4ec97b;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+    }
+
+    #hud-stage-name {
+      font-size: clamp(12.5px, 2.8vw, 14.5px);
+      font-weight: 800;
+      color: #203452;
+    }
+
+    #mp-pill {
+      display: none;
+      background: rgba(34, 52, 92, 0.88);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.35);
+      font-size: 12px;
+      font-weight: 800;
+      padding: 5px 12px;
+    }
+
+    .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .hud-alt-box {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      min-width: 108px;
+    }
+
+    .hud-alt-row {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #hud-alt {
+      font-size: clamp(15px, 3.2vw, 19px);
+      font-weight: 800;
+      color: #1e3557;
+    }
+
+    #hud-pct {
+      font-size: clamp(12.5px, 2.6vw, 14.5px);
+      font-weight: 800;
+      color: #ff5588;
+    }
+
+    .pct-track {
+      width: 108px;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(30, 53, 87, 0.12);
+      overflow: hidden;
+    }
+
+    #hud-pct-bar {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #4cc9f0 0%, #ff7aa8 65%, #ffcf33 100%);
+      transition: width 0.1s ease-out;
+    }
+
+    .hud-icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.96);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 6px 16px rgba(34, 92, 150, 0.15);
+      font-size: 17px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      pointer-events: auto;
+      text-decoration: none;
+      color: #1e3557;
+      transition: transform 0.12s ease;
+    }
+    .hud-icon-btn:active { transform: scale(0.92); }
+
+    /* Flag & Stage Toast */
+    #flag-toast {
+      position: fixed;
+      top: max(74px, calc(env(safe-area-inset-top) + 64px));
+      left: 50%;
+      transform: translate(-50%, -22px) scale(0.92);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 25;
+      background: linear-gradient(135deg, #fffdf5 0%, #fff4d6 100%);
+      border: 3px solid #ffcf33;
+      border-radius: 999px;
+      padding: 8px 22px;
+      box-shadow: 0 10px 28px rgba(204, 136, 0, 0.28);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: transform 0.32s cubic-bezier(0.22, 1.35, 0.36, 1), opacity 0.25s ease;
+      white-space: nowrap;
+    }
+    #flag-toast.show { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    #toast-pct { font-size: 16px; font-weight: 900; color: #e67e00; }
+    #toast-label { font-size: 14px; font-weight: 800; color: #4b3d26; }
+
+    /* Spectate Banner (MP) */
+    #spectate-banner {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(25, 42, 74, 0.88);
+      color: #ffffff;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      border-radius: 999px;
+      padding: 9px 18px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      z-index: 32;
+      font-size: 13.5px;
+      font-weight: 800;
+    }
+    #spectate-banner.show { display: flex; }
+    .spec-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 5px 12px;
+      background: #ffcf33;
+      color: #3f2800;
+      font-weight: 900;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* Desktop Control Hint */
+    #pointer-hint {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.84);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1.5px solid rgba(255, 255, 255, 0.94);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #2b456b;
+      box-shadow: 0 4px 14px rgba(34, 92, 150, 0.14);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      pointer-events: none;
+      z-index: 15;
+      white-space: nowrap;
+    }
+    .key-cap {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: #eaf4ff;
+      border: 1px solid #bcd8f8;
+      color: #1f4f94;
+      font-weight: 800;
+      font-size: 11px;
+    }
+
+    /* Mobile Touch Controls */
+    #touch-layer { position: fixed; inset: 0; pointer-events: none; z-index: 22; display: none; }
+    #touch-layer.touch-active { display: block; }
+
+    #joy-base {
+      position: fixed;
+      left: 88px;
+      bottom: max(42px, calc(env(safe-area-inset-bottom) + 28px));
+      width: 118px;
+      height: 118px;
+      margin-left: -59px;
+      margin-top: -59px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.28);
+      border: 3px solid rgba(255, 255, 255, 0.72);
+      box-shadow: 0 6px 20px rgba(30, 80, 140, 0.18);
+      display: grid;
+      place-items: center;
+      opacity: 0.58;
+      transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    #joy-base.active { bottom: auto; opacity: 0.96; }
+    #joy-base.dashing {
+      border-color: #ffcf33;
+      box-shadow: 0 0 0 6px rgba(255, 207, 51, 0.34), 0 8px 22px rgba(255, 160, 0, 0.28);
+    }
+    #joy-knob {
+      width: 50px; height: 50px; border-radius: 50%;
+      background: linear-gradient(145deg, #ffffff 0%, #dceeff 100%);
+      border: 3px solid #2b7fff;
+      box-shadow: 0 4px 12px rgba(30, 80, 150, 0.25);
+      will-change: transform;
+    }
+    #joy-base.dashing #joy-knob {
+      border-color: #ff8c00;
+      background: linear-gradient(145deg, #fffdf0 0%, #ffe07d 100%);
+    }
+    #joy-dash-badge {
+      position: absolute; top: -42px; left: 50%; transform: translateX(-50%);
+      background: #ffcf33; color: #5c3700; font-size: 11px; font-weight: 900;
+      letter-spacing: 0.06em; padding: 2px 9px; border-radius: 999px;
+      opacity: 0; transition: opacity 0.12s ease;
+      box-shadow: 0 3px 10px rgba(255, 174, 0, 0.35);
+    }
+    #jump-btn {
+      position: fixed;
+      right: max(22px, calc(env(safe-area-inset-right) + 18px));
+      bottom: max(28px, calc(env(safe-area-inset-bottom) + 22px));
+      width: 86px; height: 86px; border-radius: 50%;
+      border: 4px solid #ffffff;
+      background: linear-gradient(145deg, #ff79a8 0%, #ff4d88 100%);
+      color: #ffffff; font-size: 17px; font-weight: 900; letter-spacing: 0.06em;
+      box-shadow: 0 8px 22px rgba(235, 64, 122, 0.42), inset 0 -4px 0 rgba(185, 28, 86, 0.25);
+      pointer-events: auto; cursor: pointer; display: grid; place-items: center;
+      transition: transform 0.08s ease; touch-action: none;
+    }
+    #jump-btn.pressed, #jump-btn:active { transform: scale(0.9); }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(25, 58, 102, 0.22);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+      z-index: 40;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+
+    .modal-card {
+      width: min(380px, 100%);
+      background: linear-gradient(180deg, #ffffff 0%, #fffaf0 100%);
+      border: 4px solid #ffcf33;
+      border-radius: 28px;
+      padding: 26px 22px 22px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(24, 62, 114, 0.32);
+      transform: scale(0.9) translateY(12px);
+      transition: transform 0.32s cubic-bezier(0.22, 1.32, 0.36, 1);
+    }
+    .modal-overlay.show .modal-card { transform: scale(1) translateY(0); }
+
+    .clear-crown { font-size: 50px; line-height: 1; margin-bottom: 6px; }
+    .clear-title { font-size: 27px; font-weight: 900; color: #ff6b00; margin-bottom: 4px; }
+    .clear-sub { font-size: 13px; font-weight: 700; color: #6b7c93; margin-bottom: 16px; }
+    .clear-time-box {
+      background: #f4f9ff; border: 2px solid #d7e9ff; border-radius: 16px;
+      padding: 12px 16px; margin-bottom: 14px;
+    }
+    .clear-time-label { font-size: 11px; font-weight: 800; color: #5b7aa8; letter-spacing: 0.08em; }
+    #clear-time { font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; color: #1c355e; }
+    #clear-best { margin-top: 4px; font-size: 13px; font-weight: 800; color: #ff5588; }
+
+    #mp-rankings-box {
+      display: none;
+      background: #fff9e6;
+      border: 2px solid #ffe08a;
+      border-radius: 14px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      text-align: left;
+    }
+    .mp-rank-title { font-size: 12px; font-weight: 900; color: #b56d00; margin-bottom: 6px; text-align: center; }
+    #mp-rankings-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .mp-rank-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13.5px; font-weight: 800; color: #203452;
+      background: rgba(255,255,255,0.85); padding: 6px 10px; border-radius: 10px;
+    }
+    .mp-rank-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 1.5px solid rgba(0,0,0,0.15); }
+    .mp-rank-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mp-rank-time { font-variant-numeric: tabular-nums; color: #2b6fe3; }
+
+    .btn-stack { display: flex; flex-direction: column; gap: 9px; }
+    .primary-btn {
+      width: 100%; padding: 13px 18px; border: none; border-radius: 999px;
+      background: linear-gradient(135deg, #3c91ff 0%, #2b6fe3 100%);
+      color: #ffffff; font-size: 16px; font-weight: 900; cursor: pointer;
+      box-shadow: 0 7px 18px rgba(43, 111, 227, 0.34);
+      text-decoration: none; display: inline-block;
+    }
+    .secondary-btn {
+      width: 100%; padding: 11px 16px; border: 2px solid #d4e3f7; border-radius: 999px;
+      background: #ffffff; color: #2a466e; font-size: 14.5px; font-weight: 800; cursor: pointer;
+      text-decoration: none; display: inline-block;
+    }
+
+    /* Settings Modal Form */
+    .set-card { border-color: #6bb5ff; text-align: left; }
+    .set-title { font-size: 20px; font-weight: 900; color: #1e3557; margin-bottom: 14px; text-align: center; }
+    .set-row { margin-bottom: 14px; }
+    .set-label { display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 800; color: #314b70; margin-bottom: 6px; }
+    .set-slider { width: 100%; accent-color: #2b6fe3; cursor: pointer; }
+    .set-toggle-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 12px; background: #f2f8ff; border-radius: 12px; margin-bottom: 18px;
+      font-size: 14px; font-weight: 800; color: #1e3557;
+    }
+    .set-toggle-row input { width: 20px; height: 20px; accent-color: #ff5588; cursor: pointer; }
+
+    @media (max-width: 560px) {
+      .hud-pill { padding: 5px 10px; }
+      .hud-alt-box, .pct-track { min-width: 86px; width: 86px; }
+      .hud-icon-btn { width: 34px; height: 34px; font-size: 15px; }
+      #pointer-hint { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrap">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-left">
+        <div class="hud-row">
+          <div class="hud-pill" aria-label="経過時間">
+            <span>⏱</span>
+            <span id="hud-timer" class="hud-timer-val">00:00.00</span>
+          </div>
+          <div class="hud-pill" aria-label="現在のステージ">
+            <span id="hud-stage-num">ST 1</span>
+            <span id="hud-stage-name">青空草原</span>
+          </div>
+        </div>
+        <div id="mp-pill" class="hud-pill">
+          <span>🌐</span>
+          <span id="mp-pill-text">ROOM ----</span>
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <div class="hud-pill" aria-label="現在高度">
+          <div class="hud-alt-box">
+            <div class="hud-alt-row">
+              <span id="hud-alt">0.0m</span>
+              <span id="hud-pct">0%</span>
+            </div>
+            <div class="pct-track"><div id="hud-pct-bar"></div></div>
+          </div>
+        </div>
+        <button id="settings-btn" class="hud-icon-btn" type="button" aria-label="設定">⚙️</button>
+        <button id="mute-btn" class="hud-icon-btn" type="button" aria-label="ミュート切替">🔊</button>
+        <a id="home-btn" class="hud-icon-btn" href="../index.html" aria-label="ホームへ戻る">🏠</a>
+      </div>
+    </div>
+
+    <!-- Flag & Stage Toast -->
+    <div id="flag-toast" role="status" aria-live="polite">
+      <span>🚩</span>
+      <span id="toast-pct">STAGE 1</span>
+      <span id="toast-label">青空草原</span>
+    </div>
+
+    <!-- Spectate Banner (Multiplayer) -->
+    <div id="spectate-banner">
+      <span>👀 観戦中: <strong id="spectate-target-name">プレイヤー</strong></span>
+      <button id="spectate-next-btn" class="spec-btn" type="button">次の人</button>
+      <button id="spectate-results-btn" class="spec-btn" type="button">結果を見る</button>
+    </div>
+
+    <!-- PC Control Hint -->
+    <div id="pointer-hint">
+      <span><span class="key-cap">WASD</span> 移動</span>
+      <span><span class="key-cap">Shift</span> ダッシュ</span>
+      <span><span class="key-cap">Space</span> ジャンプ</span>
+      <span>クリック/ドラッグ 視点</span>
+    </div>
+
+    <!-- Mobile Touch UI -->
+    <div id="touch-layer">
+      <div id="joy-base">
+        <div id="joy-dash-badge">DASH</div>
+        <div id="joy-knob"></div>
+      </div>
+      <button id="jump-btn" type="button" aria-label="ジャンプ">JUMP</button>
+    </div>
+
+    <!-- Goal Clear Modal -->
+    <div id="clear-modal" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="clear-crown">👑</div>
+        <h1 class="clear-title">GOAL CLEAR!</h1>
+        <p class="clear-sub">全10ステージ・高度100mの王冠に到達！</p>
+        <div class="clear-time-box">
+          <div class="clear-time-label">CLEAR TIME</div>
+          <div id="clear-time">00:00.00</div>
+          <div id="clear-best">BEST 00:00.00</div>
+        </div>
+        <div id="mp-rankings-box">
+          <div class="mp-rank-title">🏆 レース順位</div>
+          <ul id="mp-rankings-list"></ul>
+        </div>
+        <div class="btn-stack">
+          <button id="spectate-btn" class="secondary-btn" type="button" style="display:none;">👀 他のプレイヤーを観戦する</button>
+          <button id="replay-btn" class="primary-btn" type="button">もう一度プレイ</button>
+          <a class="secondary-btn" href="../index.html">DIEGOgames ホームへ戻る</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- In-Game Settings Modal -->
+    <div id="settings-modal" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal-card set-card">
+        <h2 class="set-title">⚙️ 設定</h2>
+        <div class="set-row">
+          <label class="set-label" for="set-bgm"><span>BGM 音量</span><span id="set-bgm-val">70%</span></label>
+          <input id="set-bgm" class="set-slider" type="range" min="0" max="100" value="70" />
+        </div>
+        <div class="set-row">
+          <label class="set-label" for="set-se"><span>効果音 音量</span><span id="set-se-val">80%</span></label>
+          <input id="set-se" class="set-slider" type="range" min="0" max="100" value="80" />
+        </div>
+        <label class="set-toggle-row" for="set-mute">
+          <span>🔇 すべてミュート</span>
+          <input id="set-mute" type="checkbox" />
+        </label>
+        <button id="settings-close" class="primary-btn" type="button">閉じる</button>
+      </div>
+    </div>
+
+    <!-- Host Left Modal (MP) -->
+    <div id="host-left-modal" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="clear-crown">📡</div>
+        <h2 class="clear-title" style="font-size:22px; color:#d94662;">ホストが退出しました</h2>
+        <p class="clear-sub">マルチプレイレースを終了します。</p>
+        <a class="primary-btn" href="../index.html">ホームへ戻る</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- INLINE_BUNDLE_SCRIPT -->
+</body>
+</html>
